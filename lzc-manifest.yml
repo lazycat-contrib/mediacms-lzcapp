@@ -1,0 +1,78 @@
+application:
+  subdomain: mediacms
+  multi_instance: false
+  # 自带账号体系且支持自助注册（REGISTER_ALLOWED 默认开启），按平台惯例使用 public_path 直连。
+  public_path:
+    - /
+  upstreams:
+    - location: /package-licenses/
+      backend: file:///lzcapp/pkg/content/licenses/
+    - location: /
+      backend: http://mediacms:80/
+services:
+  mediacms:
+    # upstream: mediacms/mediacms:7.2.0
+    image: docker.1ms.run/mediacms/mediacms:7.2.0
+    environment:
+      - TZ=Asia/Shanghai
+      # 官方 entrypoint 支持直接读 SECRET_KEY env，显式 pin 保证跨重建稳定
+      - SECRET_KEY={{ printf "%x" (stable_secret "app_secret") }}
+      # prestart.sh 用 ADMIN_* 在首次迁移时创建管理员（仅首次生效）
+      - ADMIN_USER=admin
+      - ADMIN_EMAIL=admin@example.com
+      - ADMIN_PASSWORD={{PASSWORD_admin_pw}}
+      # deploy/docker/local_settings.py 的权威变量
+      - POSTGRES_HOST=mediacms-db
+      - POSTGRES_PORT=5432
+      - POSTGRES_USER=mediacms
+      - POSTGRES_NAME=mediacms
+      - POSTGRES_PASSWORD={{PASSWORD_db_pw}}
+      - REDIS_LOCATION=redis://mediacms-redis:6379/1
+      # 单容器承担全部角色（官方镜像按 ENABLE_* 开关分角色）
+      - ENABLE_UWSGI=yes
+      - ENABLE_NGINX=yes
+      - ENABLE_CELERY_SHORT=yes
+      - ENABLE_CELERY_LONG=yes
+      - ENABLE_CELERY_BEAT=yes
+      - ENABLE_MIGRATIONS=yes
+    binds:
+      - /lzcapp/var/media:/home/mediacms.io/mediacms/media_files
+    depends_on:
+      - mediacms-db
+      - mediacms-redis
+  mediacms-db:
+    # upstream: library/postgres:17.2
+    image: docker.1ms.run/library/postgres:17.2
+    environment:
+      - POSTGRES_USER=mediacms
+      - POSTGRES_PASSWORD={{PASSWORD_db_pw}}
+      - POSTGRES_DB=mediacms
+      - TZ=Asia/Shanghai
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -d mediacms -U mediacms"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    binds:
+      - /lzcapp/var/db:/var/lib/postgresql/data
+  mediacms-redis:
+    # upstream: library/redis:8.10.3
+    image: docker.1ms.run/library/redis:8.10.3
+    command: >-
+      /bin/sh -c "redis-server --save \"\" --appendonly no"
+usage: |
+  MediaCMS 是一个开源自托管的视频/媒体门户（Django + celery + nginx），
+  支持上传、自动转码、相册/分类、评论与多用户协作浏览。
+
+  使用方法：
+  1. 打开应用，使用管理员账号 admin 登录，密码为部署时注入的随机密码
+     （在部署参数里查看/修改）。
+  2. 其他用户可在首页自行注册账号（默认开放注册）。
+  3. 上传的媒体与转码产物持久化在 /lzcapp/var/media。
+
+  说明：
+  - 本包未做实机验证，功能以官方文档为准：
+    https://github.com/mediacms-io/mediacms
+  - 本包自带账号体系且有自助注册入口，按平台惯例使用 public_path
+    直接对外开放，由 MediaCMS 自己的登录页鉴权。
+  - 许可证 AGPL-3.0，随包分发，见 /package-licenses/。

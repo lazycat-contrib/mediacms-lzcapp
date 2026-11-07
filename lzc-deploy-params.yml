@@ -1,0 +1,11 @@
+params:
+  - id: admin_pw
+    label: 管理员密码
+    type: secret
+    default_value: "fP1ccURLltS0Vcxr"
+    description: 首次部署时为 MediaCMS 管理员账号（admin）注入的密码
+  - id: db_pw
+    label: 数据库密码
+    type: secret
+    default_value: "87jJE5mTjOkgbflG"
+    description: 内部 PostgreSQL 数据库密码
