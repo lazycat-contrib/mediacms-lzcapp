@@ -41,8 +41,8 @@ services:
       - mediacms-db
       - mediacms-redis
   mediacms-db:
-    # upstream: library/postgres:17.2
-    image: docker.1ms.run/library/postgres:17.2
+    # upstream: library/postgres:17.11
+    image: docker.1ms.run/library/postgres:17.11
     environment:
       - POSTGRES_USER=mediacms
       - POSTGRES_PASSWORD={{PASSWORD_db_pw}}
